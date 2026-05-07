@@ -1,0 +1,33 @@
+CREATE TYPE user_role AS ENUM ('admin', 'editor', 'viewer');
+
+CREATE TYPE dataset_state AS ENUM (
+  'INITIATED', 'UPLOADING', 'VALIDATING',
+  'REGISTERING', 'READY', 'FAILED', 'DEPRECATED'
+);
+
+CREATE TYPE job_state AS ENUM (
+  'SUBMITTED', 'VALIDATING', 'QUEUED', 'PROVISIONING',
+  'RUNNING', 'AGGREGATING', 'RETRYING',
+  'SUCCEEDED', 'FAILED', 'CANCELLED'
+);
+
+CREATE TYPE run_state AS ENUM (
+  'SUBMITTED', 'PLANNING', 'PROVISIONING',
+  'RUNNING', 'AGGREGATING',
+  'SUCCEEDED', 'FAILED', 'CANCELLED'
+);
+
+CREATE TYPE task_state AS ENUM (
+  'PENDING', 'LEASED', 'RUNNING',
+  'CHECKPOINTING', 'SUCCEEDED', 'FAILED', 'DEAD'
+);
+
+CREATE TYPE outbox_status AS ENUM ('PENDING', 'DELIVERED', 'FAILED');
+
+CREATE TABLE users (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role          user_role NOT NULL DEFAULT 'viewer',
+  created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+);

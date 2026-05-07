@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: mini-databricks-api:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: API_PORT
+              value: "8080"
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: db-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: redis-url
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: kafka-brokers
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: jwt-secret
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: minio-endpoint
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: minio-access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: minio-secret-key
+            - name: MINIO_BUCKET
+              value: "datasets"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+  namespace: default
+spec:
+  selector:
+    app: api-gateway
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scheduler
+  template:
+    metadata:
+      labels:
+        app: scheduler
+    spec:
+      serviceAccountName: scheduler-sa
+      containers:
+        - name: scheduler
+          image: mini-databricks-scheduler:latest
+          imagePullPolicy: Never
+          env:
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: db-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: redis-url
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: kafka-brokers
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mini-databricks-secrets
+                  key: jwt-secret
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scheduler-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: scheduler-role
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["namespaces", "pods"]
+    verbs: ["create", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: scheduler-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: scheduler-role
+subjects:
+  - kind: ServiceAccount
+    name: scheduler-sa
+    namespace: default

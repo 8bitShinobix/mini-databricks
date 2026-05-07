@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS datasets;
+DROP TYPE IF EXISTS file_format;

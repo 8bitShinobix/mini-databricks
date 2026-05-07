@@ -1,0 +1,40 @@
+# Go binaries and build artifacts
+*.exe
+*.out
+/bin/
+/dist/
+
+# Go module cache (not needed, go.sum handles this)
+vendor/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Poetry virtual environments
+.venv
+
+# Node / React
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# Environment files — CRITICAL: never commit secrets
+.env
+.env.local
+.env.*.local
+.token
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Kubernetes secrets (if you generated any locally)
+deployments/k8s/secrets-local.yaml

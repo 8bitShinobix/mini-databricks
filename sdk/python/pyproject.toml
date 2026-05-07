@@ -1,0 +1,21 @@
+[project]
+name = "mini-databricks-sdk"
+version = "0.1.0"
+description = "Python SDK for Mini Databricks"
+authors = [
+    {name = "Durgesh"}
+]
+requires-python = "^3.11"
+dependencies = [
+    "requests (>=2.33.1,<3.0.0)",
+    "dask (>=2026.3.0,<2027.0.0)",
+    "pandas (>=3.0.2,<4.0.0)",
+    "minio (>=7.2.20,<8.0.0)",
+    "pyarrow (>=24.0.0,<25.0.0)",
+    "tqdm (>=4.67.3,<5.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

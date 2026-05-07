@@ -1,0 +1,11 @@
+DROP INDEX IF EXISTS idx_jobs_workspace_id;
+DROP INDEX IF EXISTS idx_jobs_workspace_state;
+DROP INDEX IF EXISTS idx_jobs_created_at;
+DROP INDEX IF EXISTS idx_runs_job_id;
+DROP INDEX IF EXISTS idx_runs_workspace_id;
+DROP INDEX IF EXISTS idx_tasks_state;
+DROP INDEX IF EXISTS idx_tasks_run_id;
+DROP INDEX IF EXISTS idx_tasks_lease_expires;
+DROP INDEX IF EXISTS idx_artifacts_run_id;
+DROP INDEX IF EXISTS idx_outbox_status;
+DROP INDEX IF EXISTS idx_datasets_workspace_id;

@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS users;
+DROP TYPE IF EXISTS outbox_status;
+DROP TYPE IF EXISTS task_state;
+DROP TYPE IF EXISTS run_state;
+DROP TYPE IF EXISTS job_state;
+DROP TYPE IF EXISTS dataset_state;
+DROP TYPE IF EXISTS user_role;

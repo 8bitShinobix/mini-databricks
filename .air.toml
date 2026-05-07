@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ./services/api-gateway/cmd/main.go"
+  entrypoint = "./tmp/main"
+  include_ext = ["go", "toml", "env"]
+  exclude_dir = ["tmp", "vendor", "sdk"]
+
+[log]
+  time = true
+
+[misc]
+  clean_on_exit = true
