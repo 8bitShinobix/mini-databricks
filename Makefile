@@ -4,8 +4,22 @@ export
 # Change this depending on environment:
 # Local dev  → http://localhost:8080
 # Kind/K8s   → http://localhost:80
-API_BASE=http://localhost:8080
-PYTHON_JOBS_DIR=/Users/durgeshchandrakar/Documents/Coding/building_my_own_x/mini-databricks/sdk/python/jobs
+API_BASE ?= http://localhost:8080
+PYTHON_JOBS_DIR ?= /Users/durgeshchandrakar/Documents/Coding/building_my_own_x/mini-databricks/sdk/python/jobs
+TEST_EMAIL ?= test@test.com
+TEST_PASSWORD ?= password123
+WORKSPACE_NAME ?= my-workspace
+WORKSPACE_PLAN ?= free
+WORKSPACE_ID ?=
+DATASET_NAME ?= sales-data
+DATASET_FORMAT ?= csv
+DATASET_ID ?=
+JOB_ENTRYPOINT ?= $(PYTHON_JOBS_DIR)/analysis.py
+JOB_PARAMETERS ?= {"region":"IN"}
+JOB_COMPUTE ?= {"cpu":4,"memory_gb":16,"workers":3}
+JOB_MAX_RETRIES ?= 3
+JOB_ID ?=
+ARTIFACT_ID ?=
 
 .PHONY: docker-up docker-down migrate-up migrate-down migrate-create sqlc-generate \
         dev scheduler worker build-worker load-worker build-api load-api \
@@ -13,7 +27,10 @@ PYTHON_JOBS_DIR=/Users/durgeshchandrakar/Documents/Coding/building_my_own_x/mini
         k8s-apply-secrets k8s-apply-infra k8s-apply-services k8s-apply-ingress \
         k8s-delete-secrets k8s-delete-infra k8s-delete-services \
         run-migrations kind-create kind-delete kind-setup \
-        login me create-workspace list-workspaces create-job list-jobs
+        lint test ci metrics-api metrics-scheduler metrics-worker metrics-autoscaler metrics-all \
+        register login me create-workspace list-workspaces \
+        initiate-dataset list-datasets create-job list-jobs cancel-job job-progress \
+        job-artifacts artifact-download smoke-api
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 docker-up:
@@ -151,6 +168,7 @@ test:
 
 ci:
 	make lint
+	make test
 	make build-all
 # ── Metrics ───────────────────────────────────────────────────────────────────
 metrics-api:
@@ -181,13 +199,13 @@ metrics-all:
 register:
 	curl -s -X POST $(API_BASE)/api/v1/auth/register \
 		-H "Content-Type: application/json" \
-		-d "{\"email\":\"test@test.com\",\"password\":\"password123\",\"name\":\"Test User\"}" \
+		-d "{\"email\":\"$(TEST_EMAIL)\",\"password\":\"$(TEST_PASSWORD)\"}" \
 		| python3 -m json.tool
 
 login:
 	@TOKEN=$$(curl -s -X POST $(API_BASE)/api/v1/auth/login \
 		-H "Content-Type: application/json" \
-		-d '{"email":"test@test.com","password":"password123"}' \
+		-d "{\"email\":\"$(TEST_EMAIL)\",\"password\":\"$(TEST_PASSWORD)\"}" \
 		| grep -o '"token":"[^"]*"' | cut -d'"' -f4) && \
 		echo $$TOKEN > .token && \
 		echo "logged in, token saved to .token"
@@ -201,7 +219,7 @@ create-workspace:
 	curl -s -X POST $(API_BASE)/api/v1/workspaces \
 		-H "Authorization: Bearer $$(cat .token)" \
 		-H "Content-Type: application/json" \
-		-d "{\"name\":\"my-workspace\",\"plan\":\"free\"}" \
+		-d "{\"name\":\"$(WORKSPACE_NAME)\",\"plan\":\"$(WORKSPACE_PLAN)\"}" \
 		| python3 -m json.tool
 
 list-workspaces:
@@ -209,48 +227,65 @@ list-workspaces:
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
 
-
+smoke-api:
+	-@$(MAKE) register
+	@$(MAKE) login
+	@$(MAKE) me
+	@$(MAKE) create-workspace
+	@$(MAKE) list-workspaces
 
 create-job:
+	@[ -n "$(WORKSPACE_ID)" ] || (echo "WORKSPACE_ID is required"; exit 1)
+	@[ -n "$(DATASET_ID)" ] || (echo "DATASET_ID is required"; exit 1)
 	curl -s -X POST $(API_BASE)/api/v1/jobs \
 		-H "Authorization: Bearer $$(cat .token)" \
 		-H "Content-Type: application/json" \
-		-d '{"workspace_id":"99ded1e7-faf0-4a59-a611-916047cd43ae","dataset_id":"f2497747-9ce2-4153-9a7f-cccb1507e9ce","entrypoint":"$(PYTHON_JOBS_DIR)/analysis.py","parameters":{"region":"IN"},"compute":{"cpu":4,"memory_gb":16,"workers":3},"max_retries":3,"idempotency_key":"$(shell uuidgen)"}' \
+		-d '{"workspace_id":"$(WORKSPACE_ID)","dataset_id":"$(DATASET_ID)","entrypoint":"$(JOB_ENTRYPOINT)","parameters":$(JOB_PARAMETERS),"compute":$(JOB_COMPUTE),"max_retries":$(JOB_MAX_RETRIES),"idempotency_key":"$(shell uuidgen)"}' \
 		| python3 -m json.tool
 
 list-jobs:
-	curl -s "$(API_BASE)/api/v1/jobs?workspace_id=99ded1e7-faf0-4a59-a611-916047cd43ae" \
+	@[ -n "$(WORKSPACE_ID)" ] || (echo "WORKSPACE_ID is required"; exit 1)
+	curl -s "$(API_BASE)/api/v1/jobs?workspace_id=$(WORKSPACE_ID)" \
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
 
 cancel-job:
+	@[ -n "$(JOB_ID)" ] || (echo "JOB_ID is required"; exit 1)
 	curl -s -X POST $(API_BASE)/api/v1/jobs/$(JOB_ID)/cancel \
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
 
 initiate-dataset:
+	@[ -n "$(WORKSPACE_ID)" ] || (echo "WORKSPACE_ID is required"; exit 1)
 	curl -s -X POST $(API_BASE)/api/v1/datasets/initiate \
 		-H "Authorization: Bearer $$(cat .token)" \
 		-H "Content-Type: application/json" \
-		-d "{\"workspace_id\":\"99ded1e7-faf0-4a59-a611-916047cd43ae\",\"name\":\"sales-data\",\"format\":\"csv\",\"size_bytes\":1024}" \
+		-d "{\"workspace_id\":\"$(WORKSPACE_ID)\",\"name\":\"$(DATASET_NAME)\",\"file_format\":\"$(DATASET_FORMAT)\"}" \
 		| python3 -m json.tool
 
 list-datasets:
-	curl -s "$(API_BASE)/api/v1/datasets?workspace_id=99ded1e7-faf0-4a59-a611-916047cd43ae" \
+	@[ -n "$(WORKSPACE_ID)" ] || (echo "WORKSPACE_ID is required"; exit 1)
+	curl -s "$(API_BASE)/api/v1/datasets?workspace_id=$(WORKSPACE_ID)" \
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
 
 job-progress:
-	curl -s "$(API_BASE)/api/v1/jobs/$(JOB_ID)/progress?workspace_id=99ded1e7-faf0-4a59-a611-916047cd43ae" \
+	@[ -n "$(WORKSPACE_ID)" ] || (echo "WORKSPACE_ID is required"; exit 1)
+	@[ -n "$(JOB_ID)" ] || (echo "JOB_ID is required"; exit 1)
+	curl -s "$(API_BASE)/api/v1/jobs/$(JOB_ID)/progress?workspace_id=$(WORKSPACE_ID)" \
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
 
 job-artifacts:
-	curl -s "$(API_BASE)/api/v1/jobs/$(JOB_ID)/artifacts?workspace_id=99ded1e7-faf0-4a59-a611-916047cd43ae" \
+	@[ -n "$(WORKSPACE_ID)" ] || (echo "WORKSPACE_ID is required"; exit 1)
+	@[ -n "$(JOB_ID)" ] || (echo "JOB_ID is required"; exit 1)
+	curl -s "$(API_BASE)/api/v1/jobs/$(JOB_ID)/artifacts?workspace_id=$(WORKSPACE_ID)" \
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
 
 artifact-download:
+	@[ -n "$(JOB_ID)" ] || (echo "JOB_ID is required"; exit 1)
+	@[ -n "$(ARTIFACT_ID)" ] || (echo "ARTIFACT_ID is required"; exit 1)
 	curl -s "$(API_BASE)/api/v1/jobs/$(JOB_ID)/artifacts/$(ARTIFACT_ID)/download" \
 		-H "Authorization: Bearer $$(cat .token)" \
 		| python3 -m json.tool
